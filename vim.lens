@@ -1,0 +1,11 @@
+[Lens]
+DBusName=unity.singlet.lens.vim
+DBusPath=/unity/singlet/lens/vim
+Name=Vim
+Icon=/usr/share/unity/lenses/vim/unity-lens-vim.svg
+Description=Vim Lens
+SearchHint=Search Vim
+#Shortcut=c
+
+[Desktop Entry]
+X-Ubuntu-Gettext-Domain=vim
