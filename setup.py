@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
 ### BEGIN LICENSE
-# Copyright (C) 2012 Martin Carpenter mcarpenter@free.fr
+# Copyright (C) 2012 Martin Carpenter <mcarpenter@free.fr>
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License version 3, as published
 # by the Free Software Foundation.
@@ -24,7 +24,7 @@ try:
     import DistUtilsExtra.auto
     from DistUtilsExtra.command import build_extra
 except ImportError:
-    print >> sys.stderr, 'To build vim you need https://launchpad.net/python-distutils-extra'
+    print >> sys.stderr, 'To build unity-lens-vim you need https://launchpad.net/python-distutils-extra'
     sys.exit(1)
 assert DistUtilsExtra.auto.__version__ >= '2.18', 'needs DistUtilsExtra.auto >= 2.18'
 
@@ -32,7 +32,7 @@ def update_config(values = {}):
 
     oldvalues = {}
     try:
-        fin = file('vim/vimconfig.py', 'r')
+        fin = file('unity_lens_vim/unity_lens_vimconfig.py', 'r')
         fout = file(fin.name + '.new', 'w')
 
         for line in fin:
@@ -47,14 +47,14 @@ def update_config(values = {}):
         fin.close()
         os.rename(fout.name, fin.name)
     except (OSError, IOError), e:
-        print ("ERROR: Can't find vim/vimconfig.py")
+        print ("ERROR: Can't find unity_lens_vim/unity_lens_vimconfig.py")
         sys.exit(1)
     return oldvalues
 
 
 class InstallAndUpdateDataDirectory(DistUtilsExtra.auto.install_auto):
     def run(self):
-        values = {'__vim_data_directory__': "'%s'" % (self.prefix + '/share/vim/'),
+        values = {'__unity_lens_vim_data_directory__': "'%s'" % (self.prefix + '/share/unity-lens-vim/'),
                   '__version__': "'%s'" % (self.distribution.get_version())}
         previous_values = update_config(values)
         DistUtilsExtra.auto.install_auto.run(self)
@@ -67,19 +67,19 @@ class InstallAndUpdateDataDirectory(DistUtilsExtra.auto.install_auto):
 ##################################################################################
 
 DistUtilsExtra.auto.setup(
-    name='vim',
+    name='unity-lens-vim',
     version='0.0.1',
     license='GPL-3',
     #author='Your Name',
     #author_email='email@ubuntu.com',
     #description='UI for managing …',
     #long_description='Here a longer description',
-    #url='https://launchpad.net/vim',
+    #url='https://launchpad.net/unity-lens-vim',
     data_files=[
         ('share/unity/lenses/vim', ['vim.lens']),
         ('share/dbus-1/services', ['unity-lens-vim.service']),
         ('share/unity/lenses/vim', ['unity-lens-vim.svg']),
-        ('bin', ['bin/vim']),
+        ('bin', ['bin/unity-lens-vim']),
     ],
     cmdclass={"build":  build_extra.build_extra, 'install': InstallAndUpdateDataDirectory}
     )

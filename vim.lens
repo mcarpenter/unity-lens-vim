@@ -8,4 +8,4 @@ SearchHint=Search Vim
 Shortcut=e
 
 [Desktop Entry]
-X-Ubuntu-Gettext-Domain=vim
+X-Ubuntu-Gettext-Domain=unity-lens-vim

@@ -5,11 +5,11 @@ import subprocess
 
 import gettext
 from gettext import gettext as _
-gettext.textdomain('vim')
+gettext.textdomain('unity-lens-vim')
 
 from singlet.lens import SingleScopeLens, IconViewCategory, ListViewCategory
 
-from vim import vimconfig
+from unity_lens_vim import unity_lens_vimconfig
 
 from gi import _glib
 from gi.repository import Gio
