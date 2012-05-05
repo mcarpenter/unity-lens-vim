@@ -68,7 +68,7 @@ class InstallAndUpdateDataDirectory(DistUtilsExtra.auto.install_auto):
 
 DistUtilsExtra.auto.setup(
     name='vim',
-    version='0.1',
+    version='0.0.1',
     license='GPL-3',
     #author='Your Name',
     #author_email='email@ubuntu.com',
