@@ -1,0 +1,10 @@
+
+unity-lens-vim
+==============
+A lens for Ubuntu Unity that searches your vim edit history.
+
+Installation
+------------
+dpkg --install unity-lens-vim_0.0.1_all.deb
+setsid unity
+
