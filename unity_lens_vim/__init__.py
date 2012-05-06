@@ -13,8 +13,10 @@ from unity_lens_vim import unity_lens_vimconfig
 
 from gi import _glib
 from gi.repository import Gio
-from os.path import expanduser, join
+from os import chdir
+from os.path import dirname, expanduser, join
 from fnmatch import fnmatch
+from urlparse import urlparse
 
 class VimLens(SingleScopeLens):
 
@@ -48,14 +50,25 @@ class VimLens(SingleScopeLens):
 
     def handle_uri(self, scope, uri):
         """Open the selected file with gvim."""
-        #print 'Handling %s' % uri
-        subprocess.Popen(['/usr/bin/gvim', uri])
-        return self.hide_dash_response(uri)
+        #print 'Handling %s' % path
+        path = urlparse(uri).path
+        try:
+            # In general if you can't chdir to the parent directory
+            # then you won't be able to read files in that directory.
+            # There might be some odd filesystems where this doesn't
+            # hold, so ignore any errors from chdir(). If the directory
+            # really isn't accessible then gvim will report "permission
+            # denied" which is nicer than just bombing here anyway.
+            chdir(dirname(path))
+        except:
+            pass
+        subprocess.Popen(['/usr/bin/gvim', '--', uri]) # Vim opens URIs just fine cf netrw
+        return self.hide_dash_response(path)
 
     def match(self, search, path):
         """Return true if the path matches the search pattern."""
         # Use fnmatch for pattern matching (re.search is problematic since
-        # since the user might not enter a valid regular expression eg ~/.???).
+        # the user might not enter a valid regular expression eg ~/.???).
         # Use os.path.expanduser since vim can write unglobbed paths like
         # ~user/foo to viminfo.
         pattern = self.pattern(search)
@@ -93,8 +106,9 @@ class VimLens(SingleScopeLens):
         """Perform the search and append to the results list."""
         #print "Searching %s for %s" % (viminfo, search)
         for path in self.viminfo_query(self.viminfo, search):
-            uri = 'file://%s' % expanduser(path)
-            results.append(uri,
+            expanded_path = expanduser(path)
+            uri = 'file://%s' % expanded_path
+            results.append(expanded_path, # NB path not URI
                     self.get_icon(uri), # icon path
                     self.vimfiles_category, # category
                     'text/plain', # MIME type
