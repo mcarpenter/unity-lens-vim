@@ -28,6 +28,7 @@ class VimLens(SingleScopeLens):
         search_hint = 'Search Vim history'
         icon = 'vim.svg'
         search_on_blank = True
+        category_order = ['vimfiles_category', 'filesystem_category']
 
     vim_icon = '/usr/share/app-install/icons/vim.png'
     home = expanduser('~')
