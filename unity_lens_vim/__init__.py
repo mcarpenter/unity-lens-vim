@@ -15,7 +15,7 @@ from gi import _glib
 from glob import glob
 from gi.repository import Gio
 from os import chdir
-from os.path import dirname, expanduser, join
+from os.path import dirname, expanduser, isdir, join
 from fnmatch import fnmatch
 from signal import signal, SIGCHLD, SIG_IGN
 from urlparse import urlparse
@@ -115,7 +115,8 @@ class VimLens(SingleScopeLens):
         """Return all matching file paths from the filesystem."""
         pattern = self.pattern(search)
         #print 'Filesystem pattern: %s' % pattern
-        return sorted(glob(pattern))
+        slashify = lambda f: f+'/' if isdir(f) else f
+        return [slashify(f) for f in sorted(glob(pattern))]
 
     def query_viminfo(self, search, viminfo):
         """Return all matching file paths from the given viminfo file."""
