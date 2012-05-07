@@ -12,6 +12,7 @@ from singlet.lens import SingleScopeLens, IconViewCategory, ListViewCategory
 from unity_lens_vim import unity_lens_vimconfig
 
 from gi import _glib
+from glob import glob
 from gi.repository import Gio
 from os import chdir
 from os.path import dirname, expanduser, join
@@ -28,11 +29,24 @@ class VimLens(SingleScopeLens):
         search_on_blank = True
 
     vim_icon = '/usr/share/app-install/icons/vim.png'
-    viminfo = join(expanduser('~'), '.viminfo')
+    home = expanduser('~')
+    viminfo = join(home, '.viminfo')
 
-    # ListView view shows the full path
-    #vimfiles_category = IconViewCategory('Vim files', 'dialog-information-symbolic')
+    # ListView view shows the full path (IconViewCategory does not)
+    filesystem_category = ListViewCategory('Filesystem', 'dialog-information-symbolic')
     vimfiles_category = ListViewCategory('Vim files', 'dialog-information-symbolic')
+
+    def add_path_to_results(self, results, category, path):
+        """Adds the (unexpanded) path to the result category."""
+        expanded_path = expanduser(path)
+        uri = 'file://%s' % expanded_path # danger: unquoted
+        results.append(expanded_path, # NB path not URI
+                self.get_icon(uri), # icon path
+                category, # view category
+                'text/plain', # MIME type
+                path, # text
+                '', # comment
+                uri) # for drag and drop
 
     def get_icon(self, uri):
         """Returns a path to an icon for the given URI."""
@@ -65,17 +79,6 @@ class VimLens(SingleScopeLens):
         subprocess.Popen(['/usr/bin/gvim', '--', uri]) # Vim opens URIs just fine cf netrw
         return self.hide_dash_response(path)
 
-    def match(self, search, path):
-        """Return true if the path matches the search pattern."""
-        # Use fnmatch for pattern matching (re.search is problematic since
-        # the user might not enter a valid regular expression eg ~/.???).
-        # Use os.path.expanduser since vim can write unglobbed paths like
-        # ~user/foo to viminfo.
-        pattern = self.pattern(search)
-        #print 'Pattern %s' % pattern
-        #return re.search(search, expanduser(path)) or re.search(search, path)
-        return fnmatch(path, pattern) or fnmatch(expanduser(path), pattern)
-
     def pattern(self, search):
         """Returns a pattern suitable for fnmatch() from search string."""
         # Anchor characters (^, $) are special here in the normal RE way.
@@ -91,39 +94,45 @@ class VimLens(SingleScopeLens):
             pattern = search[1:] # strip leading caret
         elif re.search('^\\\^', search):
             pattern = '*' + search[1:] # strip leading backslash before caret
+        elif re.search('^/', search):
+            pattern = search
         else:
             pattern = '*' + search
         # Trailing special characters:
         if re.search('\$$', pattern):
             pattern = pattern[:-1] # strip trailing dollar
         elif re.search('^\\\$', pattern):
-            pattern = '*' + pattern[:-2] + '$' # strip backslash before trailing dollar
+            pattern = pattern[:-2] + '$' # strip backslash before trailing dollar
         else:
             pattern = pattern + '*'
         return pattern
 
+    def query_filesystem(self, search):
+        """Return all matching file paths from the filesystem."""
+        pattern = self.pattern(search)
+        #print 'Filesystem pattern: %s' % pattern
+        return sorted(glob(pattern))
+
+    def query_viminfo(self, search, viminfo):
+        """Return all matching file paths from the given viminfo file."""
+        # NB file might not exist any more, this is a feature.
+        pattern = self.pattern(search)
+        #print 'Vim pattern: %s' % pattern
+        return [f for f in self.viminfo_files(viminfo) if
+                fnmatch(expanduser(f), pattern)]
+
     def search(self, search, results):
         """Perform the search and append to the results list."""
         #print "Searching %s for %s" % (viminfo, search)
-        for path in self.viminfo_query(self.viminfo, search):
-            expanded_path = expanduser(path)
-            uri = 'file://%s' % expanded_path
-            results.append(expanded_path, # NB path not URI
-                    self.get_icon(uri), # icon path
-                    self.vimfiles_category, # category
-                    'text/plain', # MIME type
-                    path, # text
-                    '', # comment
-                    uri) # for drag and drop
-
-    def viminfo_query(self, viminfo, search):
-        """Return all matching file paths from the given viminfo file."""
-        # NB file might not exist any more, this is a feature.
-        return [f for f in self.viminfo_files(viminfo) if
-                self.match(search, f)]
+        for path in self.query_viminfo(search, self.viminfo):
+            self.add_path_to_results(results, self.vimfiles_category, path)
+        if re.match('/|~', search):
+            for path in self.query_filesystem(search):
+                self.add_path_to_results(results, self.filesystem_category, path)
 
     def viminfo_files(self, viminfo):
         """Return all file paths from the given viminfo file."""
         # Pass in the viminfo path to this method for easier testing.
         with open(viminfo) as v:
             return [re.sub('^> ', '', f).rstrip('\n') for f in v.readlines() if re.match('> ', f)]
+
