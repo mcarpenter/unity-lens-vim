@@ -79,7 +79,7 @@ DistUtilsExtra.auto.setup(
         ('share/unity/lenses/vim', ['vim.lens']),
         ('share/dbus-1/services', ['unity-lens-vim.service']),
         ('share/unity/lenses/vim', ['unity-lens-vim.svg']),
-        ('bin', ['bin/unity-lens-vim']),
+        ('lib/unity-lens-vim', ['bin/unity-lens-vim']),
     ],
     cmdclass={"build":  build_extra.build_extra, 'install': InstallAndUpdateDataDirectory}
     )
