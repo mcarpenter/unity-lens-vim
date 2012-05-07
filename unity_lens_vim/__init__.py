@@ -17,6 +17,7 @@ from gi.repository import Gio
 from os import chdir
 from os.path import dirname, expanduser, join
 from fnmatch import fnmatch
+from signal import signal, SIGCHLD, SIG_IGN
 from urlparse import urlparse
 
 class VimLens(SingleScopeLens):
@@ -35,6 +36,9 @@ class VimLens(SingleScopeLens):
     # ListView view shows the full path (IconViewCategory does not)
     filesystem_category = ListViewCategory('Filesystem', 'dialog-information-symbolic')
     vimfiles_category = ListViewCategory('Vim files', 'dialog-information-symbolic')
+
+    # Ignore children that want to become zombies (it's for their own good)
+    signal(SIGCHLD, SIG_IGN)
 
     def add_path_to_results(self, results, category, path):
         """Adds the (unexpanded) path to the result category."""
