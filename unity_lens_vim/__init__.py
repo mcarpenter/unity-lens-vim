@@ -15,7 +15,7 @@ from gi import _glib
 from glob import glob
 from gi.repository import Gio
 from os import chdir
-from os.path import dirname, expanduser, isdir, join
+from os.path import basename, dirname, expanduser, exists, isdir, join
 from fnmatch import fnmatch
 from signal import signal, SIGCHLD, SIG_IGN
 from urlparse import urlparse
@@ -28,7 +28,7 @@ class VimLens(SingleScopeLens):
         search_hint = 'Search Vim history'
         icon = 'vim.svg'
         search_on_blank = True
-        category_order = ['vimfiles_category', 'filesystem_category']
+        category_order = ['vimfiles_category', 'filesystem_category', 'new_category']
 
     vim_icon = '/usr/share/app-install/icons/vim.png'
     home = expanduser('~')
@@ -37,21 +37,23 @@ class VimLens(SingleScopeLens):
     # ListView view shows the full path (IconViewCategory does not)
     filesystem_category = ListViewCategory('Filesystem', 'dialog-information-symbolic')
     vimfiles_category = ListViewCategory('Vim files', 'dialog-information-symbolic')
+    new_category = ListViewCategory('New file', 'dialog-information-symbolic')
 
     # Ignore children that want to become zombies (it's for their own good)
     signal(SIGCHLD, SIG_IGN)
 
-    def add_path_to_results(self, results, category, path):
-        """Adds the (unexpanded) path to the result category."""
-        expanded_path = expanduser(path)
-        uri = 'file://%s' % expanded_path # danger: unquoted
-        results.append(expanded_path, # NB path not URI
-                self.get_icon(uri), # icon path
-                category, # view category
-                'text/plain', # MIME type
-                path, # text
-                '', # comment
-                uri) # for drag and drop
+    def add_paths_to_results(self, results, category, paths):
+        """Adds the (unexpanded) paths to the result category in sorted order."""
+        for path in sorted(paths):
+            expanded_path = expanduser(path)
+            uri = 'file://%s' % expanded_path # danger: unquoted
+            results.append(expanded_path, # NB path not URI
+                    self.get_icon(uri), # icon path
+                    category, # view category
+                    'text/plain', # MIME type
+                    self.slashify(path), # text
+                    '', # comment
+                    uri) # for drag and drop
 
     def get_icon(self, uri):
         """Returns a path to an icon for the given URI."""
@@ -91,23 +93,24 @@ class VimLens(SingleScopeLens):
         # Quote a leading caret or tilde, or trailing backslash if you should want
         # to search for a filename containing one of these characters.
         # Leading special characters:
-        if re.search('^~', search):
+        #print search
+        if re.search('^~', search): # starts with tilde
             pattern = expanduser(search) # expand leading tilde
-        elif re.search('^\\\~', search):
+        elif re.search('^\\\\\~', search): # starts with backslash tilde
             pattern = '*' + search[1:] # strip leading backslash before tilde
-        elif re.search('^\^', search):
+        elif re.search('^\^', search): # starts with caret
             pattern = search[1:] # strip leading caret
-        elif re.search('^\\\^', search):
+        elif re.search('^\\\\\^', search): # starts with backslash tilde
             pattern = '*' + search[1:] # strip leading backslash before caret
         elif re.search('^/', search):
             pattern = search
         else:
             pattern = '*' + search
         # Trailing special characters:
-        if re.search('\$$', pattern):
+        if re.search('\\\\\$$', pattern): # ends with backslash dollar
+            pattern = pattern[:-2] + '$*' # strip backslash before trailing dollar
+        elif re.search('\$$', pattern): # ends with dollar
             pattern = pattern[:-1] # strip trailing dollar
-        elif re.search('^\\\$', pattern):
-            pattern = pattern[:-2] + '$' # strip backslash before trailing dollar
         else:
             pattern = pattern + '*'
         return pattern
@@ -116,8 +119,32 @@ class VimLens(SingleScopeLens):
         """Return all matching file paths from the filesystem."""
         pattern = self.pattern(search)
         #print 'Filesystem pattern: %s' % pattern
-        slashify = lambda f: f+'/' if isdir(f) else f
-        return [slashify(f) for f in sorted(glob(pattern))]
+        # Special case for search pattern that ends with / or /$: should
+        # also include the directory itself in the results (assuming it
+        # exists). This does not apply to the other two query methods
+        # (directories that are opened in vim do not get recorded in
+        # ~/.viminfo.
+        dir_entries = glob(dirname(pattern)) if re.search('/\$?$', search) else []
+        return dir_entries + glob(pattern)
+
+    def query_new(self, search):
+        """Return a list of files that could be created at the given search
+        location or an empty list otherwise. Aim is to glob prefix directories
+        for when eg user searches '/usr/loc*/bin/foo' and
+        glob('/usr/loc*') == ['/usr/local']"""
+        # Remove trailing slashes. /, //.../, ^/ and ^//.../ reduce to a
+        # single slash whilst retaining any leading caret.
+        stripped_search = re.sub('((^\^/?)|.)/*$', '\\1', search)
+        dir_search = dirname(stripped_search)
+        base_search = basename(stripped_search)
+        dir_pattern = self.pattern(join(dir_search, '$'))
+        base_pattern = self.pattern('^' + base_search)
+        # Include the unglobbed patterns since fnmatch()/glob() has no
+        # escape mechanism and otherwise there is no way to create a file
+        # containing a wildcard character.
+        return set([f for d in ([dir_search] + glob(dir_pattern))
+            for f in ([join(d, base_search)] + glob(join(d, base_pattern)))
+            if not exists(f)])
 
     def query_viminfo(self, search, viminfo):
         """Return all matching file paths from the given viminfo file."""
@@ -130,11 +157,15 @@ class VimLens(SingleScopeLens):
     def search(self, search, results):
         """Perform the search and append to the results list."""
         #print "Searching %s for %s" % (viminfo, search)
-        for path in self.query_viminfo(search, self.viminfo):
-            self.add_path_to_results(results, self.vimfiles_category, path)
-        if re.match('/|~', search):
-            for path in self.query_filesystem(search):
-                self.add_path_to_results(results, self.filesystem_category, path)
+        self.add_paths_to_results(results, self.vimfiles_category, self.query_viminfo(search, self.viminfo))
+        if re.match('/|~|\^/', search):
+            self.add_paths_to_results(results, self.filesystem_category, self.query_filesystem(search))
+            self.add_paths_to_results(results, self.new_category, self.query_new(search))
+
+    def slashify(self, path):
+        """Append a trailing slash to the given path if it's a directory
+        and doesn't have one already."""
+        return path + '/' if isdir(path) and not re.search('/$', path) else path
 
     def viminfo_files(self, viminfo):
         """Return all file paths from the given viminfo file."""
