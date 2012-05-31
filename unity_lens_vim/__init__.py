@@ -168,8 +168,10 @@ class VimLens(SingleScopeLens):
         return path + '/' if isdir(path) and not re.search('/$', path) else path
 
     def viminfo_files(self, viminfo):
-        """Return all file paths from the given viminfo file."""
+        """Return all file paths from the given viminfo file (excluding
+        tree buffers from the NERDtree plugin)."""
         # Pass in the viminfo path to this method for easier testing.
         with open(viminfo) as v:
-            return [re.sub('^> ', '', f).rstrip('\n') for f in v.readlines() if re.match('> ', f)]
+            return [re.sub('^> ', '', f).rstrip('\n') for f in v.readlines()
+                    if re.match('> ', f) and not re.search('/NERD_tree_\d+$', f)]
 
