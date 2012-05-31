@@ -1,10 +1,34 @@
 
 unity-lens-vim
 ==============
-A lens for Ubuntu Unity that searches your vim edit history.
+A lens for Ubuntu Unity that searches your vim edit history.  Supports
+glob-style wildcarding and tilde expansion.
 
 Installation
 ------------
-dpkg --install unity-lens-vim_0.0.1_all.deb
+dpkg --install unity-lens-vim_0.0.2_all.deb
 setsid unity
+
+Unit tests
+----------
+quickly test
+
+Packaging
+---------
+Bash script to create .deb package using quickly(1) by exporting git
+repository to temporary bazaar repository:
+
+#!/bin/bash -e
+git_branch=$(git symbolic-ref HEAD 2>/dev/null | cut -d"/" -f 3) # fails on detached head
+if [[ "$git_branch" == master ]] ; then
+	bzr_branch=trunk
+else
+	bzr_branch="$git_branch"
+fi
+bzrdir=$(mktemp --directory)
+bzr init-repo "$bzrdir"
+git fast-export -M "$git_branch" | (cd "$bzrdir" && bzr fast-import -)
+ls $bzrdir
+(cd "$bzrdir/$bzr_branch" && quickly package)
+mv "$bzrdir"/*.deb .
 
