@@ -43,8 +43,8 @@ class VimLens(SingleScopeLens):
     signal(SIGCHLD, SIG_IGN)
 
     def add_paths_to_results(self, results, category, paths):
-        """Adds the (unexpanded) paths to the result category in sorted order."""
-        for path in sorted(paths):
+        """Adds the (unexpanded) paths to the result category."""
+        for path in paths:
             expanded_path = expanduser(path)
             uri = 'file://%s' % expanded_path # danger: unquoted
             results.append(expanded_path, # NB path not URI
@@ -125,7 +125,7 @@ class VimLens(SingleScopeLens):
         # (directories that are opened in vim do not get recorded in
         # ~/.viminfo.
         dir_entries = glob(dirname(pattern)) if re.search('/\$?$', search) else []
-        return dir_entries + glob(pattern)
+        return sorted(dir_entries + glob(pattern))
 
     def query_new(self, search):
         """Return a list of files that could be created at the given search
@@ -142,9 +142,9 @@ class VimLens(SingleScopeLens):
         # Include the unglobbed patterns since fnmatch()/glob() has no
         # escape mechanism and otherwise there is no way to create a file
         # containing a wildcard character.
-        return set([f for d in ([dir_search] + glob(dir_pattern))
+        return sorted(set([f for d in ([dir_search] + glob(dir_pattern))
             for f in ([join(d, base_search)] + glob(join(d, base_pattern)))
-            if not exists(f)])
+            if not exists(f)]))
 
     def query_viminfo(self, search, viminfo):
         """Return all matching file paths from the given viminfo file."""
